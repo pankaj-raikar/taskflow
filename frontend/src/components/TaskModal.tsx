@@ -4,17 +4,17 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Task, TaskCategory, TaskPriority, TaskStatus } from '../types';
-import { MOCK_USERS } from '../data';
+import { Task, TaskCategory, TaskPriority, TaskStatus, User } from '../types';
 import { X, Calendar, User as UserIcon, Tag, Flame, Plus } from 'lucide-react';
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'id' | 'dateLabel'> & { id?: string }) => void;
+  onSave: (task: Omit<Task, 'id' | 'dateLabel'> & { id?: string }) => Promise<void>;
   initialTask?: Task | null;
   initialStatus?: TaskStatus;
   darkTheme: boolean;
+  users: User[];
 }
 
 const CATEGORIES: TaskCategory[] = ['Design', 'Development', 'Work', 'Meeting', 'Bug', 'Documentation'];
@@ -26,14 +26,16 @@ export default function TaskModal({
   onSave, 
   initialTask, 
   initialStatus = 'todo',
-  darkTheme 
+  darkTheme,
+  users
 }: TaskModalProps) {
+  const defaultAssigneeId = users[0]?.id ?? '';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(initialStatus);
   const [category, setCategory] = useState<TaskCategory>('Design');
   const [priority, setPriority] = useState<TaskPriority>('medium');
-  const [assigneeId, setAssigneeId] = useState(MOCK_USERS[0].id);
+  const [assigneeId, setAssigneeId] = useState(defaultAssigneeId);
   const [dueDate, setDueDate] = useState('2026-05-28');
 
   // Reset or fill values when initialTask opens
@@ -52,18 +54,18 @@ export default function TaskModal({
       setStatus(initialStatus);
       setCategory('Design');
       setPriority('medium');
-      setAssigneeId(MOCK_USERS[0].id);
+      setAssigneeId(defaultAssigneeId);
       setDueDate('2026-05-28');
     }
-  }, [initialTask, initialStatus, isOpen]);
+  }, [defaultAssigneeId, initialTask, initialStatus, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    onSave({
+    await onSave({
       id: initialTask?.id,
       title,
       description,
@@ -194,7 +196,7 @@ export default function TaskModal({
                       : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-600'
                   }`}
                 >
-                  {MOCK_USERS.map((u) => (
+                  {users.map((u) => (
                     <option key={u.id} value={u.id} className={darkTheme ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}>
                       {u.name} ({u.role})
                     </option>

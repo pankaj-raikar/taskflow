@@ -19,13 +19,15 @@ import {
 } from 'lucide-react';
 import { MOCK_USERS } from '../data';
 import { User } from '../types';
+import { AuthCredentials } from '../api';
 
 interface AuthPageProps {
   initialMode: 'signup' | 'signin';
-  onLoginSuccess: (user: User) => void;
+  onAuthenticate: (credentials: AuthCredentials) => Promise<void>;
+  onDemoSignIn: (user: User) => Promise<void>;
 }
 
-export default function AuthPage({ initialMode, onLoginSuccess }: AuthPageProps) {
+export default function AuthPage({ initialMode, onAuthenticate, onDemoSignIn }: AuthPageProps) {
   const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -34,7 +36,11 @@ export default function AuthPage({ initialMode, onLoginSuccess }: AuthPageProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const getErrorMessage = (err: unknown) => {
+    return err instanceof Error ? err.message : 'Unable to authenticate. Please try again.';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -49,33 +55,32 @@ export default function AuthPage({ initialMode, onLoginSuccess }: AuthPageProps)
 
     setLoading(true);
 
-    // Simulate standard fast login delay
-    setTimeout(() => {
+    try {
+      await onAuthenticate({
+        mode: isSignUp ? 'signup' : 'signin',
+        name: fullName,
+        email,
+        password
+      });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
       setLoading(false);
-      // Auto authorize using Alex Morgan or customize details from input if SignUp
-      const baseUser: User = isSignUp 
-        ? {
-            id: 'user-custom',
-            name: fullName,
-            email: email,
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-            bio: 'Product manager and workspace organizer. Signed up member of TaskFlow productivity platform.',
-            role: 'Product Owner',
-            status: 'online'
-          }
-        : MOCK_USERS[0]; // Alex Morgan by default
-      
-      onLoginSuccess(baseUser);
-    }, 1000);
+    }
   };
 
   // Skip / Auto Sign in triggers to bypass typing
-  const handleQuickSignIn = (userIndex: number) => {
+  const handleQuickSignIn = async (userIndex: number) => {
     setLoading(true);
-    setTimeout(() => {
+    setError('');
+
+    try {
+      await onDemoSignIn(MOCK_USERS[userIndex]);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
       setLoading(false);
-      onLoginSuccess(MOCK_USERS[userIndex]);
-    }, 450);
+    }
   };
 
   return (
@@ -138,7 +143,7 @@ export default function AuthPage({ initialMode, onLoginSuccess }: AuthPageProps)
               </div>
               <div>
                 <h4 className="text-sm font-medium text-white">Secure & Private</h4>
-                <p className="text-xs text-slate-400 mt-1">Your data is always fully protected and stored locally.</p>
+                <p className="text-xs text-slate-400 mt-1">Your data is protected by authenticated workspace access.</p>
               </div>
             </div>
 
@@ -196,6 +201,7 @@ export default function AuthPage({ initialMode, onLoginSuccess }: AuthPageProps)
                     <UserIcon className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
                     <input
                       type="text"
+                      name="name"
                       autoComplete="name"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
@@ -212,6 +218,7 @@ export default function AuthPage({ initialMode, onLoginSuccess }: AuthPageProps)
                   <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
                   <input
                     type="email"
+                    name="email"
                     required
                     autoComplete="email"
                     value={email}
@@ -228,6 +235,7 @@ export default function AuthPage({ initialMode, onLoginSuccess }: AuthPageProps)
                   <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    name="password"
                     required
                     autoComplete={isSignUp ? 'new-password' : 'current-password'}
                     value={password}

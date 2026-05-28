@@ -5,7 +5,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { Task, User, Notification, TaskStatus, TaskCategory, TaskPriority } from '../types';
-import { MOCK_PROJECTS, MOCK_NOTIFICATIONS, MOCK_USERS } from '../data';
+import { TaskPatch, TaskPayload } from '../api';
+import { MOCK_PROJECTS, MOCK_NOTIFICATIONS } from '../data';
 import { 
   Check, 
   Search, 
@@ -44,7 +45,12 @@ interface DashboardProps {
   darkTheme: boolean;
   onThemeToggle: () => void;
   tasks: Task[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  users: User[];
+  loading: boolean;
+  error: string;
+  onCreateTask: (task: TaskPayload) => Promise<Task>;
+  onUpdateTask: (taskId: string, patch: TaskPatch) => Promise<Task>;
+  onDeleteTask: (taskId: string) => Promise<Task>;
 }
 
 type ActiveNavTab = 'dashboard' | 'todo' | 'in-progress' | 'done' | 'my-tasks' | 'all-tasks' | 'calendar' | 'priority' | 'projects' | 'reports';
@@ -55,7 +61,12 @@ export default function Dashboard({
   darkTheme, 
   onThemeToggle,
   tasks,
-  setTasks
+  users,
+  loading,
+  error,
+  onCreateTask,
+  onUpdateTask,
+  onDeleteTask
 }: DashboardProps) {
   const [activeNav, setActiveNav] = useState<ActiveNavTab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -77,6 +88,7 @@ export default function Dashboard({
   // Pro Upgrade dialog state
   const [unlockedPro, setUnlockedPro] = useState(false);
   const [showUpgradeAlert, setShowUpgradeAlert] = useState(false);
+  const [taskActionError, setTaskActionError] = useState('');
 
   // Read unread notifications count
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
@@ -124,30 +136,31 @@ export default function Dashboard({
   }, [tasks]);
 
   // Handle task star toggling
-  const toggleStar = (taskId: string, e: React.MouseEvent) => {
+  const toggleStar = async (task: Task, e: React.MouseEvent) => {
     e.stopPropagation();
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, starred: !t.starred } : t));
+    setTaskActionError('');
+    try {
+      await onUpdateTask(task.id, { starred: !task.starred });
+    } catch (err) {
+      setTaskActionError(err instanceof Error ? err.message : 'Unable to update task.');
+    }
   };
 
   // Move task to a status directly
-  const updateTaskStatus = (taskId: string, status: TaskStatus) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === taskId) {
-        let label = t.dateLabel;
-        if (status === 'done') label = 'Completed';
-        else if (t.dueDate === '2026-05-28') label = 'Due Today';
-        else if (t.dueDate === '2026-05-29') label = 'Due Tomorrow';
-        return { ...t, status, dateLabel: label };
-      }
-      return t;
-    }));
+  const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
+    setTaskActionError('');
+    try {
+      await onUpdateTask(taskId, { status });
+    } catch (err) {
+      setTaskActionError(err instanceof Error ? err.message : 'Unable to move task.');
+    }
   };
 
   // Checking task moves it between Todo and Done
   const toggleCheck = (task: Task, e: React.MouseEvent) => {
     e.stopPropagation();
     const targetStatus: TaskStatus = task.status === 'done' ? 'todo' : 'done';
-    updateTaskStatus(task.id, targetStatus);
+    void updateTaskStatus(task.id, targetStatus);
   };
 
   // Move task left or right (Kanban flows)
@@ -157,7 +170,7 @@ export default function Dashboard({
     const currentIndex = columns.indexOf(task.status);
     let targetIndex = currentIndex + (direction === 'right' ? 1 : -1);
     if (targetIndex >= 0 && targetIndex < columns.length) {
-      updateTaskStatus(task.id, columns[targetIndex]);
+      void updateTaskStatus(task.id, columns[targetIndex]);
     }
   };
 
@@ -193,59 +206,43 @@ export default function Dashboard({
   );
 
   // Delete/Archive task
-  const deleteTask = (taskId: string, e: React.MouseEvent) => {
+  const deleteTask = async (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    const deleteNotif: Notification = {
-      id: `notif-${Date.now()}`,
-      title: 'Task deleted',
-      content: 'You removed a task card from your workspace.',
-      time: 'Just now',
-      read: false
-    };
-    setNotifications(prev => [deleteNotif, ...prev]);
+    setTaskActionError('');
+
+    try {
+      await onDeleteTask(taskId);
+      const deleteNotif: Notification = {
+        id: `notif-${Date.now()}`,
+        title: 'Task deleted',
+        content: 'You removed a task card from your workspace.',
+        time: 'Just now',
+        read: false
+      };
+      setNotifications(prev => [deleteNotif, ...prev]);
+    } catch (err) {
+      setTaskActionError(err instanceof Error ? err.message : 'Unable to delete task.');
+    }
   };
 
   // Handle Task Creation or Editing Save
-  const handleTaskSave = (taskData: Omit<Task, 'id' | 'dateLabel'> & { id?: string }) => {
-    if (taskData.id) {
-      // Editing
-      setTasks(prev => prev.map(t => {
-        if (t.id === taskData.id) {
-          let label = t.status === 'done' ? 'Completed' : 'Planned';
-          if (taskData.dueDate === '2026-05-28') label = 'Due Today';
-          else if (taskData.dueDate === '2026-05-29') label = 'Due Tomorrow';
-          return {
-            ...t,
-            ...taskData,
-            dateLabel: label
-          } as Task;
-        }
-        return t;
-      }));
-    } else {
-      // Creating
-      let label = taskData.status === 'done' ? 'Completed' : 'Planned';
-      if (taskData.dueDate === '2026-05-28') label = 'Due Today';
-      else if (taskData.dueDate === '2026-05-29') label = 'Due Tomorrow';
+  const handleTaskSave = async (taskData: TaskPayload & { id?: string }) => {
+    setTaskActionError('');
 
-      const newTask: Task = {
-        ...taskData,
-        id: `task-${Date.now()}`,
-        dateLabel: label,
-      } as Task;
+    try {
+      const { id, ...payload } = taskData;
+      const savedTask = id ? await onUpdateTask(id, payload) : await onCreateTask(payload);
 
-      setTasks(prev => [...prev, newTask]);
-      
-      // Add notification
       const createNotif: Notification = {
         id: `notif-${Date.now()}`,
-        title: 'New project task',
-        content: `"${newTask.title}" added to column ${newTask.status.toUpperCase()}`,
+        title: id ? 'Task updated' : 'New project task',
+        content: `"${savedTask.title}" ${id ? 'saved' : `added to column ${savedTask.status.toUpperCase()}`}`,
         time: 'Just now',
         read: false
       };
       setNotifications(prev => [createNotif, ...prev]);
+    } catch (err) {
+      setTaskActionError(err instanceof Error ? err.message : 'Unable to save task.');
     }
   };
 
@@ -269,7 +266,7 @@ export default function Dashboard({
 
   // Find user image and details for tasks
   const getAssignee = (userId: string) => {
-    return MOCK_USERS.find(u => u.id === userId) || MOCK_USERS[0];
+    return users.find(u => u.id === userId) || currentUser;
   };
 
   // Calendar Days generator (Simple beautiful dashboard representation based on Current Year/Month 2026-05)
@@ -730,6 +727,17 @@ export default function Dashboard({
 
         {/* MAIN BODY SCROLLER */}
         <div className="p-4 md:p-6 space-y-5 flex-1 min-h-0 overflow-hidden flex flex-col">
+          {(loading || error || taskActionError) && (
+            <div className={`shrink-0 rounded-xl border px-4 py-3 text-xs font-medium ${
+              error || taskActionError
+                ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                : darkTheme
+                ? 'border-cyan-800/40 bg-cyan-950/20 text-cyan-300'
+                : 'border-cyan-200 bg-cyan-50 text-cyan-700'
+            }`}>
+              {error || taskActionError || 'Syncing dashboard data...'}
+            </div>
+          )}
           
           {/* Welcome Banner */}
           <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -909,7 +917,7 @@ export default function Dashboard({
                           <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
                             {renderMoveControls(task)}
                             <button
-                              onClick={(e) => toggleStar(task.id, e)}
+                              onClick={(e) => void toggleStar(task, e)}
                               className={`p-0.5 rounded transition-colors ${task.starred ? 'text-amber-400' : 'text-slate-400'}`}
                             >
                               <Star className="w-3.5 h-3.5 fill-current" />
@@ -1013,7 +1021,7 @@ export default function Dashboard({
                           <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
                             {renderMoveControls(task)}
                             <button
-                              onClick={(e) => toggleStar(task.id, e)}
+                              onClick={(e) => void toggleStar(task, e)}
                               className={`p-0.5 rounded transition-colors ${task.starred ? 'text-amber-400' : 'text-slate-400'}`}
                             >
                               <Star className="w-3.5 h-3.5 fill-current" />
@@ -1117,7 +1125,7 @@ export default function Dashboard({
                           <div className="flex items-center gap-1.5 opacity-45 group-hover:opacity-100 transition-opacity">
                             {renderMoveControls(task)}
                             <button
-                              onClick={(e) => toggleStar(task.id, e)}
+                              onClick={(e) => void toggleStar(task, e)}
                               className={`p-0.5 rounded transition-colors ${task.starred ? 'text-amber-400' : 'text-slate-400'}`}
                             >
                               <Star className="w-3.5 h-3.5 fill-current" />
@@ -1392,6 +1400,7 @@ export default function Dashboard({
         isOpen={isTeamOpen} 
         onClose={() => setIsTeamOpen(false)} 
         darkTheme={darkTheme} 
+        users={users}
       />
 
       {/* Task Creation & updating Dialog */}
@@ -1402,6 +1411,7 @@ export default function Dashboard({
         initialTask={editingTask}
         initialStatus={selectedColForNewTask}
         darkTheme={darkTheme}
+        users={users}
       />
 
     </div>

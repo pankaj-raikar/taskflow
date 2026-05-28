@@ -4,7 +4,6 @@
  */
 
 import React, { useState } from 'react';
-import { MOCK_USERS } from '../data';
 import { User } from '../types';
 import { X, Mail, ShieldAlert, Circle } from 'lucide-react';
 
@@ -12,12 +11,17 @@ interface TeamModalProps {
   isOpen: boolean;
   onClose: () => void;
   darkTheme: boolean;
+  users: User[];
 }
 
-export default function TeamModal({ isOpen, onClose, darkTheme }: TeamModalProps) {
-  const [selectedUser, setSelectedUser] = useState<User>(MOCK_USERS[0]);
+export default function TeamModal({ isOpen, onClose, darkTheme, users }: TeamModalProps) {
+  const [selectedUser, setSelectedUser] = useState<User | null>(users[0] ?? null);
 
   if (!isOpen) return null;
+
+  const activeUser = selectedUser ?? users[0];
+
+  if (!activeUser) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
@@ -51,10 +55,10 @@ export default function TeamModal({ isOpen, onClose, darkTheme }: TeamModalProps
           {/* Members Sidebar list (Left) */}
           <div className={`md:col-span-5 p-4 space-y-2 border-r ${darkTheme ? 'border-slate-800 bg-slate-950/30' : 'border-slate-100 bg-slate-50/50'}`}>
             <p className={`text-xs font-mono uppercase tracking-wider px-3 mb-3 ${darkTheme ? 'text-slate-500' : 'text-slate-400'}`}>
-              Team Members ({MOCK_USERS.length})
+              Team Members ({users.length})
             </p>
-            {MOCK_USERS.map((user) => {
-              const isActive = selectedUser.id === user.id;
+            {users.map((user) => {
+              const isActive = activeUser.id === user.id;
               return (
                 <button
                   key={user.id}
@@ -93,27 +97,27 @@ export default function TeamModal({ isOpen, onClose, darkTheme }: TeamModalProps
           <div className="md:col-span-7 p-8 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="flex items-start gap-5">
-                <img 
-                  src={selectedUser.avatar} 
-                  alt={selectedUser.name} 
+                <img
+                  src={activeUser.avatar}
+                  alt={activeUser.name}
                   className="w-20 h-20 rounded-2xl object-cover shadow-lg border border-slate-400/25"
                   referrerPolicy="no-referrer"
                 />
                 <div className="space-y-1">
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    selectedUser.status === 'online' 
-                      ? 'bg-emerald-5000/10 text-emerald-400' 
-                      : selectedUser.status === 'away' 
+                    activeUser.status === 'online'
+                      ? 'bg-emerald-5000/10 text-emerald-400'
+                      : activeUser.status === 'away'
                       ? 'bg-amber-500/10 text-amber-500' 
                       : 'bg-slate-500/10 text-slate-500'
                   }`}>
                     <Circle className={`w-2 h-2 fill-current ${
-                      selectedUser.status === 'online' ? 'text-emerald-500' : selectedUser.status === 'away' ? 'text-amber-500' : 'text-slate-400'
+                      activeUser.status === 'online' ? 'text-emerald-500' : activeUser.status === 'away' ? 'text-amber-500' : 'text-slate-400'
                     }`} />
-                    {selectedUser.status.toUpperCase()}
+                    {activeUser.status.toUpperCase()}
                   </span>
-                  <h3 className="text-2xl font-display font-semibold tracking-tight">{selectedUser.name}</h3>
-                  <p className={`text-sm ${darkTheme ? 'text-cyan-400' : 'text-cyan-600 font-medium'}`}>{selectedUser.role}</p>
+                  <h3 className="text-2xl font-display font-semibold tracking-tight">{activeUser.name}</h3>
+                  <p className={`text-sm ${darkTheme ? 'text-cyan-400' : 'text-cyan-600 font-medium'}`}>{activeUser.role}</p>
                 </div>
               </div>
 
@@ -121,7 +125,7 @@ export default function TeamModal({ isOpen, onClose, darkTheme }: TeamModalProps
               <div className="space-y-2">
                 <h5 className={`text-xs font-mono uppercase tracking-wider ${darkTheme ? 'text-slate-500' : 'text-slate-400'}`}>Professional Biography</h5>
                 <p className={`text-sm leading-relaxed ${darkTheme ? 'text-slate-300' : 'text-slate-600'}`}>
-                  {selectedUser.bio}
+                  {activeUser.bio}
                 </p>
               </div>
 
@@ -129,8 +133,8 @@ export default function TeamModal({ isOpen, onClose, darkTheme }: TeamModalProps
               <div className="space-y-3 pt-2">
                 <div className="flex items-center gap-3 text-sm">
                   <Mail className={`w-4 h-4 ${darkTheme ? 'text-slate-500' : 'text-slate-400'}`} />
-                  <a href={`mailto:${selectedUser.email}`} className={`hover:underline ${darkTheme ? 'text-slate-300 hover:text-cyan-400' : 'text-slate-600 hover:text-cyan-600'}`}>
-                    {selectedUser.email}
+                  <a href={`mailto:${activeUser.email}`} className={`hover:underline ${darkTheme ? 'text-slate-300 hover:text-cyan-400' : 'text-slate-600 hover:text-cyan-600'}`}>
+                    {activeUser.email}
                   </a>
                 </div>
                 <div className="flex items-center gap-3 text-sm">

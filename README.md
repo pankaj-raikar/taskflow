@@ -28,7 +28,7 @@ and `Bun.password` for password hashing.
 
 ```mermaid
 flowchart LR
-  Browser["React + Vite UI"] -->|future fetch calls| API["Hono API /api"]
+  Browser["React + Vite UI"] -->|fetch + bearer token| API["Hono API /api"]
   API --> Auth["JWT middleware"]
   Auth --> Routes["Auth, Users, Tasks, Projects, Notifications"]
   Routes --> Validators["Zod + @hono/zod-validator"]
@@ -69,14 +69,15 @@ backend/src/
 
 ## Frontend Audit
 
-The current `frontend/src/` code has no network API calls. It uses local
-component state, `MOCK_USERS`, `MOCK_PROJECTS`, `MOCK_NOTIFICATIONS`, and
-`INITIAL_TASKS` from `frontend/src/data.ts`, with task persistence stored in
-`localStorage` under `taskflow_tasks_list`.
+The frontend is wired to the backend through `frontend/src/api.ts`.
+Auth calls use `/api/auth/register` and `/api/auth/login`; protected task calls
+send `Authorization: Bearer <token>` and persist the session in `localStorage`
+under `taskflow_auth_session`.
 
-There is no frontend auth token flow yet: no token is stored, and no
-`Authorization` header is sent. `frontend/.env.example` currently defines
-Gemini/App URL variables and no backend URL variable.
+Tasks are loaded from `/api/tasks` after login and all task create, update,
+move, star, and delete actions call the Hono backend. Projects and
+notifications still use mock display data because the current UI does not edit
+those resources yet.
 
 UI-rendered models:
 
@@ -102,8 +103,8 @@ UI-rendered models:
 
 ## Assumptions
 
-- The frontend is not integrated with the backend yet, so the API mirrors the
-  UI models that the current React screens render.
+- The frontend now integrates auth and task CRUD with the backend, while
+  read-only project and notification panels remain mock-driven.
 - `dateLabel` is persisted on tasks because the UI expects it as a rendered
   field, even though it can be derived from `status` and `dueDate`.
 - `GET /api/users` is scoped to the signed-in user to satisfy the backend rule
@@ -121,7 +122,7 @@ UI-rendered models:
 | JWT stateless sessions | No session table or cache required. | Token revocation needs an additional denylist/session model later. |
 | Persisted `dateLabel` | Frontend can render directly with no extra mapping layer. | Backend must keep label logic consistent during task updates. |
 | Narrow user listing | Stronger tenant isolation by default. | A future team directory may need a separate membership-aware endpoint. |
-| Backend built before frontend integration | API contract is ready and tested. | React still uses local state until a client data layer is added. |
+| Incremental frontend integration | Auth and task workflows are connected without reshaping the whole UI. | Read-only project and notification panels still need API-backed loading later. |
 
 ## Setup
 
@@ -132,6 +133,9 @@ cd frontend
 bun install
 bun run dev
 ```
+
+The frontend runs at `http://localhost:5173` and expects the backend API at
+`http://localhost:3000/api` unless `VITE_API_URL` is overridden.
 
 ### Backend
 
@@ -161,6 +165,7 @@ Frontend (`frontend/.env.example`):
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Existing template | Gemini key from the original frontend template. Not used by the backend. |
 | `APP_URL` | Existing template | App hosting URL from the original frontend template. |
+| `VITE_API_URL` | No | Backend API base URL. Defaults to `http://localhost:3000/api`. |
 
 ## API Endpoints
 
@@ -205,6 +210,7 @@ bun run db:generate
 bun run db:migrate
 
 cd ../frontend
+bun run test
 bun run lint
 bun run build
 ```
