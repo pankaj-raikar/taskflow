@@ -7,3 +7,4 @@ dist/
 *.sqlite
 *.log
 .DS_Store
+.playwright-cli/

@@ -1,0 +1,6 @@
+{
+  "name": "TaskFlow",
+  "description": "A premium, glassmorphic task management dashboard featuring Kanban boards, calendar views, team profiles, and light/dark themes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
