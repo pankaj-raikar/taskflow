@@ -180,3 +180,23 @@ describe("authenticated task routes", () => {
     });
   });
 });
+
+describe("authenticated user routes", () => {
+  test("only returns the signed-in user from user endpoints", async () => {
+    const hiddenUser = await register("hidden-user@example.com");
+    const { token, user } = await register("visible-user@example.com");
+    const auth = { authorization: `Bearer ${token}` };
+
+    const listed = await requestJson("/api/users", { headers: auth });
+    expect(listed.status).toBe(200);
+    expect(listed.body.data).toHaveLength(1);
+    expect(listed.body.data[0].email).toBe("visible-user@example.com");
+
+    const hidden = await requestJson(`/api/users/${hiddenUser.user.id}`, { headers: auth });
+    expect(hidden.status).toBe(404);
+
+    const current = await requestJson(`/api/users/${user.id}`, { headers: auth });
+    expect(current.status).toBe(200);
+    expect(current.body.data.id).toBe(user.id);
+  });
+});

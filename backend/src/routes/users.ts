@@ -28,11 +28,14 @@ export const userRoutes = new Hono<{ Variables: AuthVariables }>()
     return c.json({ data: serializeUser(user) });
   })
   .get("/", (c) => {
-    const rows = db.select().from(users).all();
+    const rows = db.select().from(users).where(eq(users.id, c.get("userId"))).all();
     return c.json({ data: rows.map(serializeUser) });
   })
   .get("/:id", (c) => {
-    const user = db.select().from(users).where(eq(users.id, c.req.param("id"))).get();
+    const requestedId = c.req.param("id");
+    if (requestedId !== c.get("userId")) return c.json({ error: "User not found" }, 404);
+
+    const user = db.select().from(users).where(eq(users.id, requestedId)).get();
     if (!user) return c.json({ error: "User not found" }, 404);
     return c.json({ data: serializeUser(user) });
   })
