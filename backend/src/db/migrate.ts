@@ -1,8 +1,11 @@
 import { migrate as runMigrations } from "drizzle-orm/postgres-js/migrator";
 import { client, db } from "./index";
+import { join } from "path";
 
 export async function migrate() {
-  runMigrations(db, { migrationsFolder: "drizzle/migrations" });
+  await runMigrations(db, {
+    migrationsFolder: join(import.meta.dirname, "../../drizzle/migrations")
+  });
 }
 
 if (import.meta.main) {
