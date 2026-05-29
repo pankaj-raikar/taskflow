@@ -16,8 +16,8 @@ app.use(
   })
 );
 
-app.get("/health", (c) => c.json({ data: { status: "ok" } }));
+app.get("/health", (c) => c.json({ data: { status: "ok" }, github: "https://github.com/pankajraikar/taskflow", description: "TaskFlow Application Backend" }));
 app.route("/api", apiRoutes);
-app.get("/_/backend/health", (c) => c.json({ data: { status: "ok" } }));
+app.get("/_/backend/health", (c) => c.json({ data: { status: "ok" }, github: "https://github.com/pankajraikar/taskflow", description: "TaskFlow Application API" }));
 app.route("/_/backend/api", apiRoutes);
 app.onError(onError);
