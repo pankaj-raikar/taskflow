@@ -264,36 +264,6 @@ export default function AuthPage({ initialMode, onAuthenticate, onDemoSignIn }: 
               </button>
             </form>
 
-            {/* Separator line */}
-            <div className="relative my-6 flex items-center justify-center">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-800/70" />
-              </div>
-              <span className="relative px-3.5 bg-[#090d16] text-[10px] uppercase font-mono tracking-wider text-slate-500">
-                or continue with
-              </span>
-            </div>
-
-            {/* Social credentials */}
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => handleQuickSignIn(0)} // Quick login with Alex
-                className="py-2.5 px-4 rounded-xl border border-slate-800/80 hover:bg-slate-900/50 text-xs font-semibold text-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {/* Standard colorful Google representation */}
-                <span className="w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold font-mono">G</span>
-                <span>Google</span>
-              </button>
-              
-              <button
-                onClick={() => handleQuickSignIn(1)} // Quick login with Sophia
-                className="py-2.5 px-4 rounded-xl border border-slate-800/80 hover:bg-slate-900/50 text-xs font-semibold text-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {/* Standard Github logo replacement */}
-                <span className="w-4 h-4 bg-slate-600 rounded-full text-[10px] text-white flex items-center justify-center font-bold font-mono">G</span>
-                <span>GitHub</span>
-              </button>
-            </div>
 
             {/* Quick Demo Assist Banner */}
             <div className="mt-5 p-3 rounded-xl bg-cyan-950/15 border border-cyan-800/30 text-left">
