@@ -1,21 +1,25 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
 
 process.env.JWT_SECRET = "test-secret";
-process.env.DATABASE_URL = join(import.meta.dir, "test.db");
 process.env.FRONTEND_URL = "http://localhost:5173";
 
-const dbPath = process.env.DATABASE_URL;
+const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+const integrationDescribe = testDatabaseUrl ? describe : describe.skip;
 
-if (existsSync(dbPath)) {
-  unlinkSync(dbPath);
+if (testDatabaseUrl) {
+  process.env.DATABASE_URL = testDatabaseUrl;
 }
 
-const { migrate } = await import("../src/db/migrate");
-const { app } = await import("../src/app");
+const modules = testDatabaseUrl
+  ? await Promise.all([import("../src/db/migrate"), import("../src/app"), import("../src/db")])
+  : null;
+const migrate = modules?.[0].migrate;
+const app = modules?.[1].app;
+const client = modules?.[2].client;
 
 async function requestJson(path: string, init?: RequestInit) {
+  if (!app) throw new Error("TEST_DATABASE_URL is required for API integration tests");
+
   const response = await app.request(path, {
     ...init,
     headers: {
@@ -56,16 +60,14 @@ async function register(email = "alex@example.com") {
 }
 
 beforeAll(async () => {
-  await migrate();
+  await migrate?.();
 });
 
-afterAll(() => {
-  if (existsSync(dbPath)) {
-    unlinkSync(dbPath);
-  }
+afterAll(async () => {
+  await client?.end();
 });
 
-describe("auth", () => {
+integrationDescribe("auth", () => {
   test("registers a user and returns a bearer token plus frontend user shape", async () => {
     const { token, user } = await register("register@example.com");
 
@@ -115,7 +117,7 @@ describe("auth", () => {
   });
 });
 
-describe("authenticated task routes", () => {
+integrationDescribe("authenticated task routes", () => {
   test("creates, lists, updates, and deletes tasks scoped to the signed-in user", async () => {
     const { token, user } = await register("tasks@example.com");
     const auth = { authorization: `Bearer ${token}` };
@@ -227,7 +229,7 @@ describe("authenticated task routes", () => {
   });
 });
 
-describe("authenticated user routes", () => {
+integrationDescribe("authenticated user routes", () => {
   test("only returns the signed-in user from user endpoints", async () => {
     const hiddenUser = await register("hidden-user@example.com");
     const { token, user } = await register("visible-user@example.com");

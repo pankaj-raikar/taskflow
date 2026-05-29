@@ -1,16 +1,12 @@
-import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema";
-import { bootstrapSqliteSchema } from "./bootstrap";
-import { getDatabaseUrl } from "./config";
 
-const databaseUrl = getDatabaseUrl();
-
-export const sqlite = new Database(databaseUrl);
-sqlite.exec("PRAGMA foreign_keys = ON");
-
-if (process.env.VERCEL && !process.env.DATABASE_URL) {
-  bootstrapSqliteSchema(sqlite);
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required");
 }
 
-export const db = drizzle(sqlite, { schema });
+export const client = postgres(process.env.DATABASE_URL, {
+  prepare: false
+});
+export const db = drizzle(client, { schema });

@@ -22,20 +22,20 @@ function serializeUser(user: User) {
 
 export const userRoutes = new Hono<{ Variables: AuthVariables }>()
   .use("*", authMiddleware)
-  .get("/me", (c) => {
-    const user = db.select().from(users).where(eq(users.id, c.get("userId"))).get();
+  .get("/me", async (c) => {
+    const [user] = await db.select().from(users).where(eq(users.id, c.get("userId")));
     if (!user) return c.json({ error: "User not found" }, 404);
     return c.json({ data: serializeUser(user) });
   })
-  .get("/", (c) => {
-    const rows = db.select().from(users).where(eq(users.id, c.get("userId"))).all();
+  .get("/", async (c) => {
+    const rows = await db.select().from(users).where(eq(users.id, c.get("userId")));
     return c.json({ data: rows.map(serializeUser) });
   })
-  .get("/:id", (c) => {
+  .get("/:id", async (c) => {
     const requestedId = c.req.param("id");
     if (requestedId !== c.get("userId")) return c.json({ error: "User not found" }, 404);
 
-    const user = db.select().from(users).where(eq(users.id, requestedId)).get();
+    const [user] = await db.select().from(users).where(eq(users.id, requestedId));
     if (!user) return c.json({ error: "User not found" }, 404);
     return c.json({ data: serializeUser(user) });
   })
@@ -44,16 +44,15 @@ export const userRoutes = new Hono<{ Variables: AuthVariables }>()
     zValidator("json", updateUserSchema, (result, c) => {
       if (!result.success) return c.json({ error: "Invalid request body" }, 400);
     }),
-    (c) => {
-      const user = db
+    async (c) => {
+      const [user] = await db
         .update(users)
         .set({
           ...c.req.valid("json"),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date()
         })
         .where(eq(users.id, c.get("userId")))
-        .returning()
-        .get();
+        .returning();
 
       if (!user) return c.json({ error: "User not found" }, 404);
       return c.json({ data: serializeUser(user) });

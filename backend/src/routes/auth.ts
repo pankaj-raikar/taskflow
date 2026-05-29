@@ -41,22 +41,23 @@ export const authRoutes = new Hono()
     }),
     async (c) => {
       const input = c.req.valid("json");
-      const existing = db.select().from(users).where(eq(users.email, input.email)).get();
+      const [existing] = await db.select().from(users).where(eq(users.email, input.email));
 
       if (existing) {
         return c.json({ error: "Email already registered" }, 409);
       }
 
       const passwordHash = await Bun.password.hash(input.password);
-      const user = db
+      const [user] = await db
         .insert(users)
         .values({
           name: input.name,
           email: input.email,
           passwordHash
         })
-        .returning()
-        .get();
+        .returning();
+
+      if (!user) return c.json({ error: "Unable to create user" }, 500);
 
       const token = await createToken(user.id);
       return c.json({ token, user: serializeUser(user) }, 201);
@@ -69,7 +70,7 @@ export const authRoutes = new Hono()
     }),
     async (c) => {
       const input = c.req.valid("json");
-      const user = db.select().from(users).where(eq(users.email, input.email)).get();
+      const [user] = await db.select().from(users).where(eq(users.email, input.email));
 
       if (!user || !(await Bun.password.verify(input.password, user.passwordHash))) {
         return c.json({ error: "Invalid email or password" }, 401);

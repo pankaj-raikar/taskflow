@@ -3,13 +3,13 @@
 ![Bun](https://img.shields.io/badge/runtime-Bun-000000?logo=bun&logoColor=white)
 ![Hono](https://img.shields.io/badge/api-Hono-E36002?logo=hono&logoColor=white)
 ![Drizzle](https://img.shields.io/badge/orm-Drizzle_C3F53C-111827)
-![SQLite](https://img.shields.io/badge/database-SQLite-003B57?logo=sqlite&logoColor=white)
+![Supabase](https://img.shields.io/badge/database-Supabase_Postgres-3ECF8E?logo=supabase&logoColor=111827)
 ![React](https://img.shields.io/badge/frontend-React_19-61DAFB?logo=react&logoColor=111827)
 ![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6?logo=typescript&logoColor=white)
 
 TaskFlow is a Vite React task dashboard with a Bun-native Hono API backend.
-The backend uses Drizzle ORM with SQLite, Zod request validation, JWT auth,
-and `Bun.password` for password hashing.
+The backend uses Drizzle ORM with Supabase Postgres, Zod request validation,
+JWT auth, and `Bun.password` for password hashing.
 
 ## Contents
 
@@ -33,7 +33,7 @@ flowchart LR
   Auth --> Routes["Auth, Users, Tasks, Projects, Notifications"]
   Routes --> Validators["Zod + @hono/zod-validator"]
   Validators --> ORM["Drizzle ORM"]
-  ORM --> SQLite[("SQLite via bun:sqlite")]
+  ORM --> Supabase[("Supabase Postgres")]
 
   API --> CORS["CORS: FRONTEND_URL"]
   API --> Logger["hono/logger"]
@@ -92,11 +92,11 @@ UI-rendered models:
 
 | Area | Decision | Reason |
 | --- | --- | --- |
-| Runtime | Bun | Matches the requested stack and gives native `bun:sqlite` plus `Bun.password`. |
+| Runtime | Bun | Matches the requested stack and gives native `Bun.password`. |
 | HTTP framework | Hono | Small Bun-friendly API surface with built-in middleware support. |
 | Authentication | JWT signed with `JWT_SECRET`, 7-day expiry | Stateless auth, easy to consume from a future SPA integration. |
 | Password storage | `Bun.password.hash` / `Bun.password.verify` | Uses Bun's built-in bcrypt support without extra dependencies. |
-| Database | SQLite via `bun:sqlite` | Lightweight local persistence with explicit migrations. |
+| Database | Supabase Postgres via `postgres` | Durable hosted persistence compatible with Vercel serverless deployments. |
 | ORM | Drizzle | Type-safe schema and SQL access without hiding relational details. |
 | Validation | Zod schemas per resource | Every `POST` and `PATCH` body is validated before route logic runs. |
 | Response shape | `{ data }` and `{ error }` | Simple contract aligned with the original backend requirements. |
@@ -109,8 +109,7 @@ UI-rendered models:
   field, even though it can be derived from `status` and `dueDate`.
 - `GET /api/users` is scoped to the signed-in user to satisfy the backend rule
   that all authenticated queries are filtered by `userId`.
-- The current project keeps SQLite as the production database target because
-  the requested stack explicitly specified Drizzle with `bun:sqlite`.
+- `DATABASE_URL` should use Supabase's pooled Postgres connection string.
 - Frontend quick-login/social buttons remain UI-only until the React app is
   wired to `/api/auth/register` and `/api/auth/login`.
 
@@ -118,7 +117,7 @@ UI-rendered models:
 
 | Tradeoff | Benefit | Cost |
 | --- | --- | --- |
-| SQLite instead of Postgres | Minimal setup and simple local/Railway deployment with a persisted file. | Horizontal scaling and managed backups require more care. |
+| Supabase Postgres | Durable storage, pooling, backups, and Vercel-friendly serverless access. | Requires a hosted database connection string for local integration tests and deployment. |
 | JWT stateless sessions | No session table or cache required. | Token revocation needs an additional denylist/session model later. |
 | Persisted `dateLabel` | Frontend can render directly with no extra mapping layer. | Backend must keep label logic consistent during task updates. |
 | Narrow user listing | Stronger tenant isolation by default. | A future team directory may need a separate membership-aware endpoint. |
@@ -135,7 +134,8 @@ bun run dev
 ```
 
 The frontend runs at `http://localhost:5173` and expects the backend API at
-`http://localhost:3000/api` unless `VITE_API_URL` is overridden.
+`/_/backend/api` by default for Vercel Services. For separate local frontend and
+backend dev servers, set `VITE_API_URL=http://localhost:3000/api`.
 
 ### Backend
 
@@ -143,10 +143,13 @@ The frontend runs at `http://localhost:5173` and expects the backend API at
 cd backend
 bun install
 cp .env.example .env
-bun run db:generate
 bun run db:migrate
 bun run dev
 ```
+
+Set `DATABASE_URL` in `.env` before running migrations. In Supabase, use
+Database Settings -> Connection String -> Transaction pooler or Session pooler,
+then replace the password placeholder.
 
 ## Environment Variables
 
@@ -156,7 +159,7 @@ Backend (`backend/.env.example`):
 | --- | --- | --- |
 | `PORT` | No | Backend HTTP port. Defaults to `3000`. |
 | `JWT_SECRET` | Yes | Secret used to sign and verify 7-day JWTs. Startup fails when missing. |
-| `DATABASE_URL` | No | SQLite database path. Defaults to `./dev.db`. |
+| `DATABASE_URL` | Yes | Supabase Postgres pooled connection string. |
 | `FRONTEND_URL` | No | Allowed CORS origin. Defaults to `http://localhost:5173`. |
 
 Frontend (`frontend/.env.example`):
@@ -165,7 +168,7 @@ Frontend (`frontend/.env.example`):
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Existing template | Gemini key from the original frontend template. Not used by the backend. |
 | `APP_URL` | Existing template | App hosting URL from the original frontend template. |
-| `VITE_API_URL` | No | Backend API base URL. Defaults to `http://localhost:3000/api`. |
+| `VITE_API_URL` | No | Backend API base URL. Defaults to `/_/backend/api`. |
 
 ## API Endpoints
 
@@ -204,7 +207,7 @@ validation, `401` for missing/invalid auth, `404` for missing records, and
 
 ```bash
 cd backend
-bun test
+TEST_DATABASE_URL=<supabase-or-test-postgres-url> bun test
 bun run typecheck
 bun run db:generate
 bun run db:migrate
@@ -220,7 +223,14 @@ bun run build
 Deploy the frontend to Vercel as a static Vite app. Set any frontend
 environment variables in Vercel project settings.
 
-Deploy the backend to Railway with Bun. Set `JWT_SECRET`, `DATABASE_URL`,
-`FRONTEND_URL`, and optional `PORT` in Railway variables. Use
-`bun run db:migrate` during release/startup before `bun run start`, and persist
-the SQLite database path with Railway storage if using SQLite in production.
+Deploy frontend and backend with Vercel Services. Set `JWT_SECRET` and
+`DATABASE_URL` in Vercel environment variables. Apply the Drizzle migration to
+Supabase before using the deployed API:
+
+```bash
+cd backend
+DATABASE_URL=<supabase-pooled-connection-string> bun run db:migrate
+```
+
+Backend API routes are available under `/_/backend/api/*` in the Vercel
+deployment.

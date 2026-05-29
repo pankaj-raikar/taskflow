@@ -20,16 +20,15 @@ function serializeProject(project: Project) {
 
 export const projectRoutes = new Hono<{ Variables: AuthVariables }>()
   .use("*", authMiddleware)
-  .get("/", (c) => {
-    const rows = db.select().from(projects).where(eq(projects.userId, c.get("userId"))).all();
+  .get("/", async (c) => {
+    const rows = await db.select().from(projects).where(eq(projects.userId, c.get("userId")));
     return c.json({ data: rows.map(serializeProject) });
   })
-  .get("/:id", (c) => {
-    const project = db
+  .get("/:id", async (c) => {
+    const [project] = await db
       .select()
       .from(projects)
-      .where(and(eq(projects.id, c.req.param("id")), eq(projects.userId, c.get("userId"))))
-      .get();
+      .where(and(eq(projects.id, c.req.param("id")), eq(projects.userId, c.get("userId"))));
 
     if (!project) return c.json({ error: "Project not found" }, 404);
     return c.json({ data: serializeProject(project) });
@@ -39,12 +38,13 @@ export const projectRoutes = new Hono<{ Variables: AuthVariables }>()
     zValidator("json", createProjectSchema, (result, c) => {
       if (!result.success) return c.json({ error: "Invalid request body" }, 400);
     }),
-    (c) => {
-      const project = db
+    async (c) => {
+      const [project] = await db
         .insert(projects)
         .values({ ...c.req.valid("json"), userId: c.get("userId") })
-        .returning()
-        .get();
+        .returning();
+
+      if (!project) return c.json({ error: "Unable to create project" }, 500);
 
       return c.json({ data: serializeProject(project) }, 201);
     }
@@ -54,24 +54,22 @@ export const projectRoutes = new Hono<{ Variables: AuthVariables }>()
     zValidator("json", updateProjectSchema, (result, c) => {
       if (!result.success) return c.json({ error: "Invalid request body" }, 400);
     }),
-    (c) => {
-      const project = db
+    async (c) => {
+      const [project] = await db
         .update(projects)
-        .set({ ...c.req.valid("json"), updatedAt: new Date().toISOString() })
+        .set({ ...c.req.valid("json"), updatedAt: new Date() })
         .where(and(eq(projects.id, c.req.param("id")), eq(projects.userId, c.get("userId"))))
-        .returning()
-        .get();
+        .returning();
 
       if (!project) return c.json({ error: "Project not found" }, 404);
       return c.json({ data: serializeProject(project) });
     }
   )
-  .delete("/:id", (c) => {
-    const project = db
+  .delete("/:id", async (c) => {
+    const [project] = await db
       .delete(projects)
       .where(and(eq(projects.id, c.req.param("id")), eq(projects.userId, c.get("userId"))))
-      .returning()
-      .get();
+      .returning();
 
     if (!project) return c.json({ error: "Project not found" }, 404);
     return c.json({ data: serializeProject(project) });

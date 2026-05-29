@@ -32,18 +32,17 @@ function serializeTask(task: Task) {
 
 export const taskRoutes = new Hono<{ Variables: AuthVariables }>()
   .use("*", authMiddleware)
-  .get("/", (c) => {
+  .get("/", async (c) => {
     const userId = c.get("userId");
-    const rows = db.select().from(tasks).where(eq(tasks.userId, userId)).all();
+    const rows = await db.select().from(tasks).where(eq(tasks.userId, userId));
     return c.json({ data: rows.map(serializeTask) });
   })
-  .get("/:id", (c) => {
+  .get("/:id", async (c) => {
     const userId = c.get("userId");
-    const task = db
+    const [task] = await db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.id, c.req.param("id")), eq(tasks.userId, userId)))
-      .get();
+      .where(and(eq(tasks.id, c.req.param("id")), eq(tasks.userId, userId)));
 
     if (!task) return c.json({ error: "Task not found" }, 404);
     return c.json({ data: serializeTask(task) });
@@ -53,22 +52,23 @@ export const taskRoutes = new Hono<{ Variables: AuthVariables }>()
     zValidator("json", createTaskSchema, (result, c) => {
       if (!result.success) return c.json({ error: "Invalid request body" }, 400);
     }),
-    (c) => {
+    async (c) => {
       const userId = c.get("userId");
       const input = c.req.valid("json");
-      const assignee = db.select().from(users).where(eq(users.id, input.assigneeId)).get();
+      const [assignee] = await db.select().from(users).where(eq(users.id, input.assigneeId));
 
       if (!assignee) return c.json({ error: "Assignee not found" }, 404);
 
-      const task = db
+      const [task] = await db
         .insert(tasks)
         .values({
           ...input,
           userId,
           dateLabel: labelForTask(input)
         })
-        .returning()
-        .get();
+        .returning();
+
+      if (!task) return c.json({ error: "Unable to create task" }, 500);
 
       return c.json({ data: serializeTask(task) }, 201);
     }
@@ -78,16 +78,16 @@ export const taskRoutes = new Hono<{ Variables: AuthVariables }>()
     zValidator("json", updateTaskSchema, (result, c) => {
       if (!result.success) return c.json({ error: "Invalid request body" }, 400);
     }),
-    (c) => {
+    async (c) => {
       const userId = c.get("userId");
       const id = c.req.param("id");
-      const existing = db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId))).get();
+      const [existing] = await db.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
       if (!existing) return c.json({ error: "Task not found" }, 404);
 
       const input = c.req.valid("json");
       if (input.assigneeId) {
-        const assignee = db.select().from(users).where(eq(users.id, input.assigneeId)).get();
+        const [assignee] = await db.select().from(users).where(eq(users.id, input.assigneeId));
         if (!assignee) return c.json({ error: "Assignee not found" }, 404);
       }
 
@@ -96,28 +96,28 @@ export const taskRoutes = new Hono<{ Variables: AuthVariables }>()
         dueDate: input.dueDate ?? existing.dueDate
       };
 
-      const task = db
+      const [task] = await db
         .update(tasks)
         .set({
           ...input,
           dateLabel: input.status || input.dueDate ? labelForTask(nextForLabel) : existing.dateLabel,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date()
         })
         .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-        .returning()
-        .get();
+        .returning();
+
+      if (!task) return c.json({ error: "Task not found" }, 404);
 
       return c.json({ data: serializeTask(task) });
     }
   )
-  .delete("/:id", (c) => {
+  .delete("/:id", async (c) => {
     const userId = c.get("userId");
     const id = c.req.param("id");
-    const task = db
+    const [task] = await db
       .delete(tasks)
       .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-      .returning()
-      .get();
+      .returning();
 
     if (!task) return c.json({ error: "Task not found" }, 404);
     return c.json({ data: serializeTask(task) });

@@ -1,15 +1,15 @@
-import { relations, sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import { boolean, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const timestamps = {
-  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 };
 
-export const users = sqliteTable("users", {
-  id: text("id")
+export const users = pgTable("users", {
+  id: uuid("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
+    .defaultRandom(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
@@ -20,11 +20,11 @@ export const users = sqliteTable("users", {
   ...timestamps
 });
 
-export const tasks = sqliteTable("tasks", {
-  id: text("id")
+export const tasks = pgTable("tasks", {
+  id: uuid("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
+    .defaultRandom(),
+  userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
@@ -34,18 +34,18 @@ export const tasks = sqliteTable("tasks", {
   priority: text("priority", { enum: ["low", "medium", "high"] }).notNull(),
   dueDate: text("due_date").notNull(),
   dateLabel: text("date_label").notNull(),
-  assigneeId: text("assignee_id")
+  assigneeId: uuid("assignee_id")
     .notNull()
     .references(() => users.id, { onDelete: "restrict" }),
-  starred: integer("starred", { mode: "boolean" }).notNull().default(false),
+  starred: boolean("starred").notNull().default(false),
   ...timestamps
 });
 
-export const projects = sqliteTable("projects", {
-  id: text("id")
+export const projects = pgTable("projects", {
+  id: uuid("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
+    .defaultRandom(),
+  userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
@@ -55,17 +55,17 @@ export const projects = sqliteTable("projects", {
   ...timestamps
 });
 
-export const notifications = sqliteTable("notifications", {
-  id: text("id")
+export const notifications = pgTable("notifications", {
+  id: uuid("id")
     .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
+    .defaultRandom(),
+  userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   content: text("content").notNull(),
   time: text("time").notNull(),
-  read: integer("read", { mode: "boolean" }).notNull().default(false),
+  read: boolean("read").notNull().default(false),
   ...timestamps
 });
 

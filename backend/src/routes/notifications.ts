@@ -20,8 +20,8 @@ function serializeNotification(notification: Notification) {
 
 export const notificationRoutes = new Hono<{ Variables: AuthVariables }>()
   .use("*", authMiddleware)
-  .get("/", (c) => {
-    const rows = db.select().from(notifications).where(eq(notifications.userId, c.get("userId"))).all();
+  .get("/", async (c) => {
+    const rows = await db.select().from(notifications).where(eq(notifications.userId, c.get("userId")));
     return c.json({ data: rows.map(serializeNotification) });
   })
   .post(
@@ -29,12 +29,13 @@ export const notificationRoutes = new Hono<{ Variables: AuthVariables }>()
     zValidator("json", createNotificationSchema, (result, c) => {
       if (!result.success) return c.json({ error: "Invalid request body" }, 400);
     }),
-    (c) => {
-      const notification = db
+    async (c) => {
+      const [notification] = await db
         .insert(notifications)
         .values({ ...c.req.valid("json"), userId: c.get("userId") })
-        .returning()
-        .get();
+        .returning();
+
+      if (!notification) return c.json({ error: "Unable to create notification" }, 500);
 
       return c.json({ data: serializeNotification(notification) }, 201);
     }
@@ -44,24 +45,22 @@ export const notificationRoutes = new Hono<{ Variables: AuthVariables }>()
     zValidator("json", updateNotificationSchema, (result, c) => {
       if (!result.success) return c.json({ error: "Invalid request body" }, 400);
     }),
-    (c) => {
-      const notification = db
+    async (c) => {
+      const [notification] = await db
         .update(notifications)
-        .set({ ...c.req.valid("json"), updatedAt: new Date().toISOString() })
+        .set({ ...c.req.valid("json"), updatedAt: new Date() })
         .where(and(eq(notifications.id, c.req.param("id")), eq(notifications.userId, c.get("userId"))))
-        .returning()
-        .get();
+        .returning();
 
       if (!notification) return c.json({ error: "Notification not found" }, 404);
       return c.json({ data: serializeNotification(notification) });
     }
   )
-  .delete("/:id", (c) => {
-    const notification = db
+  .delete("/:id", async (c) => {
+    const [notification] = await db
       .delete(notifications)
       .where(and(eq(notifications.id, c.req.param("id")), eq(notifications.userId, c.get("userId"))))
-      .returning()
-      .get();
+      .returning();
 
     if (!notification) return c.json({ error: "Notification not found" }, 404);
     return c.json({ data: serializeNotification(notification) });

@@ -1,5 +1,5 @@
-import { migrate as runMigrations } from "drizzle-orm/bun-sqlite/migrator";
-import { db, sqlite } from "./index";
+import { migrate as runMigrations } from "drizzle-orm/postgres-js/migrator";
+import { client, db } from "./index";
 
 export async function migrate() {
   runMigrations(db, { migrationsFolder: "drizzle/migrations" });
@@ -7,6 +7,6 @@ export async function migrate() {
 
 if (import.meta.main) {
   await migrate();
-  sqlite.close();
+  await client.end();
   console.log("Database migrations applied.");
 }
