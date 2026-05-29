@@ -1,4 +1,3 @@
-import { serve } from "bun";
 import { app } from "./app";
 
 if (!process.env.JWT_SECRET) {
@@ -8,6 +7,7 @@ if (!process.env.JWT_SECRET) {
 export default app;
 
 if (!process.env.VERCEL) {
+  const { serve } = await import("bun");
   const port = Number(process.env.PORT ?? 3000);
 
   serve({
