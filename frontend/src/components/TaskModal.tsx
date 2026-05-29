@@ -18,6 +18,7 @@ interface TaskModalProps {
 }
 
 const CATEGORIES: TaskCategory[] = ['Design', 'Development', 'Work', 'Meeting', 'Bug', 'Documentation'];
+const OTHER_CATEGORY = 'Other';
 const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high'];
 
 export default function TaskModal({ 
@@ -33,7 +34,8 @@ export default function TaskModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(initialStatus);
-  const [category, setCategory] = useState<TaskCategory>('Design');
+  const [categoryOption, setCategoryOption] = useState<TaskCategory>('Design');
+  const [customCategory, setCustomCategory] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [assigneeId, setAssigneeId] = useState(defaultAssigneeId);
   const [dueDate, setDueDate] = useState('2026-05-28');
@@ -41,10 +43,12 @@ export default function TaskModal({
   // Reset or fill values when initialTask opens
   useEffect(() => {
     if (initialTask) {
+      const isKnownCategory = CATEGORIES.includes(initialTask.category);
       setTitle(initialTask.title);
       setDescription(initialTask.description);
       setStatus(initialTask.status);
-      setCategory(initialTask.category);
+      setCategoryOption(isKnownCategory ? initialTask.category : OTHER_CATEGORY);
+      setCustomCategory(isKnownCategory ? '' : initialTask.category);
       setPriority(initialTask.priority);
       setAssigneeId(initialTask.assigneeId);
       setDueDate(initialTask.dueDate);
@@ -52,7 +56,8 @@ export default function TaskModal({
       setTitle('');
       setDescription('');
       setStatus(initialStatus);
-      setCategory('Design');
+      setCategoryOption('Design');
+      setCustomCategory('');
       setPriority('medium');
       setAssigneeId(defaultAssigneeId);
       setDueDate('2026-05-28');
@@ -63,14 +68,15 @@ export default function TaskModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    const resolvedCategory = categoryOption === OTHER_CATEGORY ? customCategory.trim() : categoryOption;
+    if (!title.trim() || !resolvedCategory) return;
 
     await onSave({
       id: initialTask?.id,
       title,
       description,
       status,
-      category,
+      category: resolvedCategory,
       priority,
       assigneeId,
       dueDate,
@@ -142,8 +148,11 @@ export default function TaskModal({
               <div className="relative">
                 <Tag className={`absolute left-3.5 top-3.5 w-4 h-4 ${darkTheme ? 'text-slate-500' : 'text-slate-400'}`} />
                 <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as TaskCategory)}
+                  value={categoryOption}
+                  onChange={(e) => {
+                    setCategoryOption(e.target.value as TaskCategory);
+                    if (e.target.value !== OTHER_CATEGORY) setCustomCategory('');
+                  }}
                   className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none text-sm appearance-none transition-all ${
                     darkTheme 
                       ? 'bg-slate-950/50 border-slate-800 text-white focus:border-cyan-500' 
@@ -155,8 +164,25 @@ export default function TaskModal({
                       {cat}
                     </option>
                   ))}
+                  <option value={OTHER_CATEGORY} className={darkTheme ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}>
+                    Other
+                  </option>
                 </select>
               </div>
+              {categoryOption === OTHER_CATEGORY && (
+                <input
+                  type="text"
+                  required
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  placeholder="Type category"
+                  className={`mt-2 w-full px-4 py-2.5 rounded-xl border outline-none text-sm transition-all ${
+                    darkTheme 
+                      ? 'bg-slate-950/50 border-slate-800 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/25' 
+                      : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/25'
+                  }`}
+                />
+              )}
             </div>
 
             <div className="space-y-1">

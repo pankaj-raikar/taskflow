@@ -30,9 +30,7 @@ export const tasks = sqliteTable("tasks", {
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
   status: text("status", { enum: ["todo", "in-progress", "done"] }).notNull(),
-  category: text("category", {
-    enum: ["Design", "Development", "Work", "Meeting", "Bug", "Documentation"]
-  }).notNull(),
+  category: text("category").notNull(),
   priority: text("priority", { enum: ["low", "medium", "high"] }).notNull(),
   dueDate: text("due_date").notNull(),
   dateLabel: text("date_label").notNull(),

@@ -15,7 +15,7 @@ export interface User {
 
 export type TaskStatus = 'todo' | 'in-progress' | 'done';
 
-export type TaskCategory = 'Design' | 'Development' | 'Work' | 'Meeting' | 'Bug' | 'Documentation';
+export type TaskCategory = string;
 
 export type TaskPriority = 'low' | 'medium' | 'high';
 

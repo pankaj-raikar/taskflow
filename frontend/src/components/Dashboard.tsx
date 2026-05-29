@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Task, User, Notification, TaskStatus, TaskCategory, TaskPriority } from '../types';
+import { Task, User, Notification, TaskStatus, TaskPriority } from '../types';
 import { TaskPatch, TaskPayload } from '../api';
 import { MOCK_PROJECTS, MOCK_NOTIFICATIONS } from '../data';
 import { 
@@ -30,8 +30,6 @@ import {
   CheckCircle2,
   Trash2,
   Sliders,
-  Sparkles,
-  Award,
   Play,
   Menu,
   X
@@ -85,9 +83,6 @@ export default function Dashboard({
   // Profile dropdown
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  // Pro Upgrade dialog state
-  const [unlockedPro, setUnlockedPro] = useState(false);
-  const [showUpgradeAlert, setShowUpgradeAlert] = useState(false);
   const [taskActionError, setTaskActionError] = useState('');
 
   // Read unread notifications count
@@ -267,6 +262,54 @@ export default function Dashboard({
   // Find user image and details for tasks
   const getAssignee = (userId: string) => {
     return users.find(u => u.id === userId) || currentUser;
+  };
+
+  const renderCategoryChip = (task: Task, tone: 'todo' | 'progress' | 'done') => {
+    const category = task.category.trim();
+    const isBatch = category.toLowerCase().includes('batch');
+    const isDevelopment = category.toLowerCase() === 'development';
+    const lightClass = isBatch
+      ? 'bg-amber-100 text-amber-800 border-amber-300 shadow-[0_0_0_1px_rgba(217,119,6,0.10)]'
+      : isDevelopment
+      ? 'bg-sky-100 text-sky-800 border-sky-300 shadow-[0_0_0_1px_rgba(2,132,199,0.10)]'
+      : tone === 'done'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : 'bg-slate-100 text-slate-700 border-slate-300';
+    const darkClass = isBatch
+      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+      : isDevelopment
+      ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+      : tone === 'done'
+      ? 'bg-emerald-500/5 text-emerald-400 border-emerald-900/30'
+      : 'bg-slate-100/5 text-slate-400 border-slate-800/80';
+
+    return (
+      <span className={`max-w-[9rem] truncate text-[10px] px-2 py-0.5 rounded border font-mono font-semibold ${
+        darkTheme ? darkClass : lightClass
+      }`}>
+        {category}
+      </span>
+    );
+  };
+
+  const renderPriorityBadge = (priority: TaskPriority) => {
+    const styles = {
+      high: darkTheme
+        ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+        : 'bg-rose-100 text-rose-700 border-rose-300 shadow-[0_0_0_1px_rgba(225,29,72,0.08)]',
+      medium: darkTheme
+        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+        : 'bg-amber-100 text-amber-800 border-amber-300 shadow-[0_0_0_1px_rgba(217,119,6,0.08)]',
+      low: darkTheme
+        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+        : 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-[0_0_0_1px_rgba(5,150,105,0.08)]'
+    } satisfies Record<TaskPriority, string>;
+
+    return (
+      <span className={`text-[9px] px-2 py-0.5 rounded-md font-mono font-semibold border ${styles[priority]}`}>
+        {priority.toUpperCase()}
+      </span>
+    );
   };
 
   // Calendar Days generator (Simple beautiful dashboard representation based on Current Year/Month 2026-05)
@@ -498,37 +541,8 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* Upgrade to Pro & Logout */}
-        <div className="p-4 space-y-4">
-          
-          <div className={`p-4.5 rounded-2xl relative overflow-hidden border ${
-            darkTheme 
-              ? 'bg-[#090e1f] border-indigo-950 shadow-inner' 
-              : 'bg-indigo-50/40 border-indigo-100 shadow-sm'
-          }`}>
-            <div className="absolute top-[-20px] right-[-20px] w-16 h-16 bg-indigo-500/10 rounded-full blur-xl" />
-            
-            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 mb-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>UPGRADE TO PRO</span>
-            </div>
-            
-            <h4 className="text-xs font-medium text-slate-400 leading-relaxed">
-              Unlock unlimited board synchronizations and team calendars.
-            </h4>
-            
-            <button
-              onClick={() => {
-                setUnlockedPro(true);
-                setShowUpgradeAlert(true);
-                setTimeout(() => setShowUpgradeAlert(false), 4000);
-              }}
-              className="w-full mt-3.5 py-2 rounded-xl text-xs font-semibold text-center bg-gradient-to-r from-cyan-400 to-indigo-600 text-white hover:opacity-95 transform active:scale-95 transition-all shadow-lg"
-            >
-              {unlockedPro ? 'Pro Active ✨' : 'Upgrade Now'}
-            </button>
-          </div>
-
+        {/* Logout */}
+        <div className="p-4">
           {/* Quick Sign Out row */}
           <button
             onClick={onLogout}
@@ -558,14 +572,6 @@ export default function Dashboard({
 
       {/* 2. MAIN HUB WORKSPACE CANVAS PANEL */}
       <main className="h-screen flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
-
-        {/* Global PRO welcome flash banner */}
-        {showUpgradeAlert && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium text-sm py-3 px-6 rounded-2xl shadow-xl flex items-center gap-3 animate-bounce">
-            <Award className="w-5 h-5 text-amber-300" />
-            <span>Successfully upgraded to <strong>TaskFlow Premium Enterprise Suite</strong>!</span>
-          </div>
-        )}
 
         {/* TOP BAR / NAVIGATION HEADER */}
         <header className={`shrink-0 p-4 sm:p-5 flex items-center justify-between border-b ${
@@ -904,15 +910,7 @@ export default function Dashboard({
                       >
                         {/* Drag Handle represent */}
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className={`text-[9px] px-2 py-0.5 rounded-md font-mono ${
-                            task.priority === 'high' 
-                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                              : task.priority === 'medium'
-                              ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                              : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                          }`}>
-                            {task.priority.toUpperCase()}
-                          </span>
+                          {renderPriorityBadge(task.priority)}
                           
                           <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
                             {renderMoveControls(task)}
@@ -935,9 +933,7 @@ export default function Dashboard({
                         <p className={`text-[11px] truncate mt-1 ${darkTheme ? 'text-slate-400' : 'text-slate-500'}`}>{task.description}</p>
 
                         <div className="mt-4 pt-3 border-t border-slate-800/40 flex items-center justify-between">
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100/5 text-slate-400 border border-slate-800/80 font-mono">
-                            {task.category}
-                          </span>
+                          {renderCategoryChip(task, 'todo')}
 
                           <div className="flex items-center gap-3">
                             <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
@@ -1008,15 +1004,7 @@ export default function Dashboard({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className={`text-[9px] px-2 py-0.5 rounded-md font-mono ${
-                            task.priority === 'high' 
-                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                              : task.priority === 'medium'
-                              ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                              : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                          }`}>
-                            {task.priority.toUpperCase()}
-                          </span>
+                          {renderPriorityBadge(task.priority)}
 
                           <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
                             {renderMoveControls(task)}
@@ -1039,9 +1027,7 @@ export default function Dashboard({
                         <p className={`text-[11px] truncate mt-1 ${darkTheme ? 'text-slate-400' : 'text-slate-500'}`}>{task.description}</p>
 
                         <div className="mt-4 pt-3 border-t border-slate-800/40 flex items-center justify-between">
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100/5 text-slate-400 border border-slate-800/80 font-mono">
-                            {task.category}
-                          </span>
+                          {renderCategoryChip(task, 'progress')}
 
                           <div className="flex items-center gap-3">
                             <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
@@ -1112,15 +1098,7 @@ export default function Dashboard({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className={`text-[9px] px-2 py-0.5 rounded-md font-mono ${
-                            task.priority === 'high' 
-                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                              : task.priority === 'medium'
-                              ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                              : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                          }`}>
-                            {task.priority.toUpperCase()}
-                          </span>
+                          {renderPriorityBadge(task.priority)}
 
                           <div className="flex items-center gap-1.5 opacity-45 group-hover:opacity-100 transition-opacity">
                             {renderMoveControls(task)}
@@ -1143,9 +1121,7 @@ export default function Dashboard({
                         <p className={`text-[11px] truncate mt-1 ${darkTheme ? 'text-slate-500' : 'text-slate-400'}`}>{task.description}</p>
 
                         <div className="mt-4 pt-3 border-t border-slate-800/40 flex items-center justify-between">
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/5 text-emerald-400 border border-emerald-900/30 font-mono">
-                            {task.category}
-                          </span>
+                          {renderCategoryChip(task, 'done')}
 
                           <div className="flex items-center gap-3">
                             <span className="text-[10px] text-emerald-500 font-mono flex items-center gap-1 font-semibold">
@@ -1324,9 +1300,12 @@ export default function Dashboard({
                 <div className="space-y-4">
                   <h5 className="text-xs font-mono uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-800/30">Category Volume</h5>
                   
-                  {(['Design', 'Development', 'Work', 'Meeting', 'Bug', 'Documentation'] as TaskCategory[]).map(cat => {
+                  {Array.from(new Set(['Design', 'Development', 'Work', 'Meeting', 'Bug', 'Documentation', ...tasks.map(t => t.category)])).map(cat => {
                     const count = tasks.filter(t => t.category === cat).length;
-                    const maxCount = Math.max(...['Design', 'Development', 'Work', 'Meeting', 'Bug', 'Documentation'].map(c => tasks.filter(t => t.category === c).length));
+                    const maxCount = Math.max(
+                      ...Array.from(new Set(['Design', 'Development', 'Work', 'Meeting', 'Bug', 'Documentation', ...tasks.map(t => t.category)]))
+                        .map(c => tasks.filter(t => t.category === c).length)
+                    );
                     const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
                     
                     return (

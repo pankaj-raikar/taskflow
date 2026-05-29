@@ -171,6 +171,43 @@ describe("authenticated task routes", () => {
     expect(deleted.body.data.id).toBe(taskId);
   });
 
+  test("stores a custom task category from other category input", async () => {
+    const { token, user } = await register("custom-category@example.com");
+    const auth = { authorization: `Bearer ${token}` };
+
+    const created = await requestJson("/api/tasks", {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({
+        title: "Coordinate launch batch",
+        description: "Group the release tasks into small execution batches.",
+        status: "in-progress",
+        category: "Launch Ops",
+        priority: "medium",
+        dueDate: "2026-05-29",
+        assigneeId: user.id,
+        starred: false
+      })
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.data.category).toBe("Launch Ops");
+
+    const taskId = created.body.data.id;
+    const updated = await requestJson(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: auth,
+      body: JSON.stringify({ category: "Customer Research" })
+    });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.category).toBe("Customer Research");
+
+    const listed = await requestJson("/api/tasks", { headers: auth });
+    expect(listed.status).toBe(200);
+    expect(listed.body.data[0].category).toBe("Customer Research");
+  });
+
   test("rejects protected routes without a bearer token", async () => {
     const response = await requestJson("/api/tasks");
 
