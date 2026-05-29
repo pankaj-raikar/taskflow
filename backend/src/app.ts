@@ -18,4 +18,6 @@ app.use(
 
 app.get("/health", (c) => c.json({ data: { status: "ok" } }));
 app.route("/api", apiRoutes);
+app.get("/_/backend/health", (c) => c.json({ data: { status: "ok" } }));
+app.route("/_/backend/api", apiRoutes);
 app.onError(onError);

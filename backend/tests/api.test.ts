@@ -216,6 +216,15 @@ describe("authenticated task routes", () => {
       body: { error: "Missing bearer token" }
     });
   });
+
+  test("serves task routes from the Vercel service route prefix", async () => {
+    const response = await requestJson("/_/backend/api/tasks");
+
+    expect(response).toMatchObject({
+      status: 401,
+      body: { error: "Missing bearer token" }
+    });
+  });
 });
 
 describe("authenticated user routes", () => {

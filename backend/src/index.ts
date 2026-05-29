@@ -5,11 +5,15 @@ if (!process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET is required");
 }
 
-const port = Number(process.env.PORT ?? 3000);
+export default app;
 
-serve({
-  fetch: app.fetch,
-  port
-});
+if (!process.env.VERCEL) {
+  const port = Number(process.env.PORT ?? 3000);
 
-console.log(`TaskFlow API listening on http://localhost:${port}`);
+  serve({
+    fetch: app.fetch,
+    port
+  });
+
+  console.log(`TaskFlow API listening on http://localhost:${port}`);
+}

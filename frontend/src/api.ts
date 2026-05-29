@@ -21,7 +21,7 @@ type FetchLike = typeof fetch;
 
 const SESSION_STORAGE_KEY = 'taskflow_auth_session';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/_/backend/api';
 
 export class ApiError extends Error {
   constructor(
